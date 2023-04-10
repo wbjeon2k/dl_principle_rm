@@ -1,0 +1,12 @@
+# remove vscode devcontainer
+/.devcontainer
+# remove dataset png files
+*.png
+# remove tensorboard file
+*.log
+logs/
+tensorboard/
+# remove result files
+*.npy
+
+*.pyc
