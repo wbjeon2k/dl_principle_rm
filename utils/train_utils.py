@@ -40,7 +40,7 @@ def select_optimizer(opt_name, lr, model, sched_name="cos"):
     return opt, scheduler
 
 
-def select_model(model_name, dataset, num_classes=None):
+def select_model(model_name, dataset, num_classes=None, backbone=None):
     opt = edict(
         {
             "depth": 18,
@@ -58,9 +58,10 @@ def select_model(model_name, dataset, num_classes=None):
     )
 
     if "mnist" in dataset:
-        model_class = getattr(mnist, "MLP")
+        model_class = getattr(mnist, "MLP") if backbone=="basic" else getattr(mnist,"ViT_MLP")
     elif "cifar" in dataset:
-        model_class = getattr(cifar, "ResNet")
+        model_class = getattr(
+            cifar, "ResNet") if backbone == "basic" else getattr(cifar, "ViT_CIFAR")
     elif "imagenet" in dataset:
         model_class = getattr(imagenet, "ResNet")
     else:
@@ -68,19 +69,20 @@ def select_model(model_name, dataset, num_classes=None):
             "Please select the appropriate datasets (mnist, cifar10, cifar100, imagenet)"
         )
 
-    if model_name == "resnet18":
-        opt["depth"] = 18
-    elif model_name == "resnet32":
-        opt["depth"] = 32
-    elif model_name == "resnet34":
-        opt["depth"] = 34
-    elif model_name == "mlp400":
-        opt["width"] = 400
-    else:
-        raise NotImplementedError(
-            "Please choose the model name in [resnet18, resnet32, resnet34]"
-        )
-
+    if backbone == "basic":
+        if model_name == "resnet18":
+            opt["depth"] = 18
+        elif model_name == "resnet32":
+            opt["depth"] = 32
+        elif model_name == "resnet34":
+            opt["depth"] = 34
+        elif model_name == "mlp400":
+            opt["width"] = 400
+        else:
+            raise NotImplementedError(
+                "Please choose the model name in [resnet18, resnet32, resnet34]"
+            )
+    
     model = model_class(opt)
 
     return model

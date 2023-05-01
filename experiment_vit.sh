@@ -11,6 +11,8 @@ EXP="blurry10" # disjoint, blurry10, blurry30
 MEM_SIZE=500 # cifar10: k={200, 500, 1000}, mnist: k=500, cifar100: k=2,000, imagenet: k=20,000
 TRANS="cutmix autoaug" # multiple choices: cutmix, cutout, randaug, autoaug
 
+BACKBONE="vit"
+
 N_WORKER=4
 JOINT_ACC=0.0 # training all the tasks at once.
 # FINISH CIL CONFIG ####################
@@ -31,7 +33,12 @@ fi
 
 if [ "$DATASET" == "mnist" ]; then
     TOTAL=50000 N_VAL=250 N_CLASS=10 TOPK=1
-    MODEL_NAME="mlp400"
+    if [ "$BACKBONE" == "basic" ];
+    then
+        MODEL_NAME="mlp400"
+    else
+        MODEL_NAME="ViT"
+    fi
     N_EPOCH=5; BATCHSIZE=16; LR=0.05 OPT_NAME="sgd" SCHED_NAME="cos"
     if [ "${MODE_LIST[0]}" == "joint" ]
     then
@@ -44,7 +51,13 @@ if [ "$DATASET" == "mnist" ]; then
     fi
 elif [ "$DATASET" == "cifar10" ]; then
     TOTAL=50000 N_VAL=250 N_CLASS=10 TOPK=1
-    MODEL_NAME="resnet18"
+    # MODEL_NAME="resnet18"
+    if [ "$BACKBONE" == "basic" ];
+    then
+        MODEL_NAME="resnet18"
+    else
+        MODEL_NAME="ViT"
+    fi
     N_EPOCH=256; BATCHSIZE=16; LR=0.05 OPT_NAME="sgd" SCHED_NAME="cos"
     if [ "${MODE_LIST[0]}" == "joint" ]; then
         N_INIT_CLS=10 N_CLS_A_TASK=10 N_TASKS=1
@@ -91,4 +104,5 @@ python main.py --mode $MODE --mem_manage $MEM_MANAGE --exp_name $EXP \
 --lr $LR --batchsize $BATCHSIZE \
 --n_worker $N_WORKER --n_epoch $N_EPOCH \
 --memory_size $MEM_SIZE --transform $TRANS --uncert_metric $UNCERT_METRIC \
---feature_size $FEAT_SIZE $distilling --joint_acc $JOINT_ACC
+--feature_size $FEAT_SIZE $distilling --joint_acc $JOINT_ACC \
+--backbone $BACKBONE

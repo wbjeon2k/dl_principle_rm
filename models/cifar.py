@@ -1,5 +1,6 @@
 import torch.nn as nn
 from models.layers import ConvBlock, InitialBlock, FinalBlock
+from models.vit import SimpleViT
 
 
 class BasicBlock(nn.Module):
@@ -212,3 +213,15 @@ class ResNet(nn.Module):
         out = out.view(x.size(0), -1)
         out = self.fc(out)
         return out
+
+class ViT_CIFAR(SimpleViT):
+    def __init__(self, opt):
+        super().__init__(
+            image_size=32,
+            patch_size=4,
+            num_classes=opt.num_classes,
+            dim=1024,
+            depth=6,
+            heads=16,
+            mlp_dim=2048
+        )

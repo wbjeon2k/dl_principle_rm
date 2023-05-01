@@ -79,7 +79,7 @@ class Finetune:
         if kwargs["mem_manage"] == "default":
             self.mem_manage = "random"
 
-        self.model = select_model(self.model_name, self.dataset, kwargs["n_init_cls"])
+        self.model = select_model(self.model_name, self.dataset, kwargs["n_init_cls"], kwargs["backbone"])
         self.model = self.model.to(self.device)
         self.criterion = self.criterion.to(self.device)
 
@@ -95,7 +95,7 @@ class Finetune:
         self.streamed_list = train_datalist
         self.test_list = test_datalist
 
-    def before_task(self, datalist, cur_iter, init_model=False, init_opt=True):
+    def before_task(self, datalist, cur_iter, init_model=False, init_opt=True, backbone="vit"):
         logger.info("Apply before_task")
         incoming_classes = pd.DataFrame(datalist)["klass"].unique().tolist()
         self.exposed_classes = list(set(self.learned_classes + incoming_classes))
@@ -110,16 +110,31 @@ class Finetune:
                 self.feature_extractor, self.feature_size, self.num_learning_class
             )
 
-        in_features = self.model.fc.in_features
-        out_features = self.model.fc.out_features
+        if backbone == "basic":
+            in_features = self.model.fc.in_features
+            out_features = self.model.fc.out_features
+        elif backbone == "vit":
+            in_features = self.model.dim
+            out_features = self.model.num_classes
+        else:
+            raise NotImplementedError("select either basic or vit")
+            
         # To care the case of decreasing head
         new_out_features = max(out_features, self.num_learning_class)
         if init_model:
             # init model parameters in every iteration
             logger.info("Reset model parameters")
-            self.model = select_model(self.model_name, self.dataset, new_out_features)
+            # FIX : enable backbone option.
+            self.model = select_model(self.model_name, self.dataset, new_out_features, backbone=backbone)
         else:
-            self.model.fc = nn.Linear(in_features, new_out_features)
+            if backbone=="basic":
+                self.model.fc = nn.Linear(in_features, new_out_features)
+            elif backbone == "vit":
+                self.model.fc = nn.Sequential(
+                    nn.LayerNorm(in_features), nn.Linear(in_features, new_out_features))
+            else:
+                raise NotImplementedError("select either basic or vit")
+                
         self.params = {
             n: p for n, p in list(self.model.named_parameters())[:-2] if p.requires_grad
         }  # For regularzation methods

@@ -28,6 +28,16 @@ def base_parser():
         default="cifar10",
         help="[mnist, cifar10, cifar100, imagenet]",
     )
+    
+    # add backbone options
+    parser.add_argument(
+        "--backbone",
+        type=str,
+        default="basic",
+        choices=["basic", "vit"],
+        help="Select either cnn or vit [cnn,vit]"
+    )
+    
     parser.add_argument("--n_tasks", type=int, default="5", help="The number of tasks")
     parser.add_argument(
         "--n_cls_a_task", type=int, default=2, help="The number of class of each task"
