@@ -10,3 +10,4 @@ tensorboard/
 *.npy
 
 *.pyc
+*.out
