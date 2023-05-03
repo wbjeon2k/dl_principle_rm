@@ -68,20 +68,37 @@ def get_train_datalist(args, cur_iter: int) -> List:
             rnd=args.rnd_seed,
             n_cls=args.n_cls_a_task,
             iter=cur_iter,
+            tasks=args.n_tasks,
+            i_blurry=args.i_blurry,
+            n_ratio=args.n_ratio,
+            m_ratio=args.m_ratio,
         )
-
-        datalist = pd.read_json(
-            f"collections/{args.dataset}/{collection_name}.json"
-        ).to_dict(orient="records")
+        if args.i_blurry is False :
+            datalist = pd.read_json(
+                f"collections/{args.dataset}/{collection_name}.json"
+            ).to_dict(orient="records")
+        else:
+            datalist = pd.read_json(
+                f"i_blurry_collections/{args.dataset}/{collection_name}.json"
+            ).to_dict(orient="records")
         logger.info(f"[Train] Get datalist from {collection_name}.json")
 
     return datalist
 
 
-def get_train_collection_name(dataset, exp, rnd, n_cls, iter):
-    collection_name = "{dataset}_train_{exp}_rand{rnd}_cls{n_cls}_task{iter}".format(
-        dataset=dataset, exp=exp, rnd=rnd, n_cls=n_cls, iter=iter
-    )
+def get_train_collection_name(dataset, exp, rnd, n_cls, iter, tasks, i_blurry, n_ratio=0, m_ratio=0):
+    '''
+        n : i-blurry config, disjointed ratio control
+        m : i-blurry config, blurry ratio control
+    '''
+    if i_blurry is False :
+        collection_name = "{dataset}_train_{exp}_rand{rnd}_cls{n_cls}_task{iter}".format(
+            dataset=dataset, exp=exp, rnd=rnd, n_cls=n_cls, iter=iter
+        )
+    else :
+        collection_name = "{dataset}_split{tasks}_n{n_ratio}_m{m_ratio}_rand{rnd}_task{iter}".format(
+            dataset=dataset, exp=exp, rnd=rnd, tasks=tasks, iter=iter, n_ratio=n_ratio, m_ratio=m_ratio, 
+        )
     return collection_name
 
 

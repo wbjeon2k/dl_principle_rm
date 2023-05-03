@@ -23,10 +23,13 @@ from utils.augment import Cutout, select_autoaugment
 from utils.data_loader import get_test_datalist, get_statistics
 from utils.data_loader import get_train_datalist
 from utils.method_manager import select_method
-
+from collections import Counter
 
 def main():
     args = config.base_parser()
+    '''
+        Dataset list = [mnist, cifar10, cifar100, imagenet]
+    '''
 
     # Save file name
     tr_names = ""
@@ -100,7 +103,11 @@ def main():
     logger.info(f"[2] Incrementally training {args.n_tasks} tasks")
     task_records = defaultdict(list)
 
-    for cur_iter in range(args.n_tasks):
+    '''
+        n_tasks : split 개수로 보면됨
+    '''
+    for cur_iter in range(args.n_tasks): #! 여기서부터 중요
+        #TODO: Current에 해당하는 데이터들만 수정하면 됨.
         if args.mode == "joint" and cur_iter > 0:
             return
 
@@ -114,9 +121,13 @@ def main():
 
 
         # get datalist
+        #TODOL: 여기서 Datalist를 불러옴 (이거 제거하고 이름 완전히 변경하면 될 듯)
+
         cur_train_datalist = get_train_datalist(args, cur_iter)
         cur_test_datalist = get_test_datalist(args, args.exp_name, cur_iter)
-
+        class_counts = Counter(item['klass'] for item in cur_train_datalist)
+        args.n_init_cls = len(class_counts.keys())
+        logger.info(f"[2-1-1] Dataset checklist {class_counts}")
         # Reduce datalist in Debug mode
         if args.debug:
             random.shuffle(cur_train_datalist)
@@ -127,6 +138,7 @@ def main():
         logger.info("[2-2] Set environment for the current task")
         method.set_current_dataset(cur_train_datalist, cur_test_datalist)
         # Increment known class for current task iteration.
+        # TODO : 여기서 모든 값들을 변경해야 함 -> 받는 클래스 같은 것들 데이터셋 호출하는 부분에서 설정해주고 여기로 전달
         method.before_task(cur_train_datalist, cur_iter, args.init_model, args.init_opt)
 
         # The way to handle streamed samles
@@ -165,7 +177,6 @@ def main():
                 batch_size=args.batchsize,
                 n_worker=args.n_worker,
             )
-
             method.after_task(cur_iter)
 
         logger.info("[2-4] Update the information for the current task")

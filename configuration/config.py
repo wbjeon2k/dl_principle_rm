@@ -152,6 +152,14 @@ def base_parser():
 
     # Debug
     parser.add_argument("--debug", action="store_true", help="Turn on Debug mode")
-
+    
+    # I-blurry setting valu
+    parser.add_argument("--i_blurry", action="store_true", help="Turn on Debug mode")
+    parser.add_argument("--n_ratio", type=int, default=0,
+                        help="i-blurry config, disjointed ratio control, setlist = [0, 50, 100] \
+                            100 is full disjoint training, This may vary depending on each data set.")
+    parser.add_argument("--m_ratio", type=int, default=0, 
+                        help="i-blurry config, blurry ratio control, setlist = [0, 10, 30, 50]\
+                            This may vary depending on each data set.")
     args = parser.parse_args()
     return args
