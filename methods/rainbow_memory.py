@@ -39,6 +39,97 @@ class RM(Finetune):
         self.exp_env = kwargs["stream_env"]
         if kwargs["mem_manage"] == "default":
             self.mem_manage = "uncertainty"
+            
+        #regularization term
+        self.params = {
+            n: p for n, p in list(self.model.named_parameters())[:-2] if p.requires_grad
+        }  # For convenience
+        self.regularization_terms = {}
+        self.task_count = 0
+        self.reg_coef = kwargs["reg_coef"]
+        
+    #EWC regularization    
+    def calculate_importance(self, dataloader):
+        # Update the diag fisher information
+        # There are several ways to estimate the F matrix.
+        # We keep the implementation as simple as possible while maintaining a similar performance to the literature.
+        logger.debug("Computing EWC")
+
+        # Initialize the importance matrix
+        importance = {}
+        for n, p in self.params.items():
+            importance[n] = p.clone().detach().fill_(0)  # zero initialized
+
+        # Sample a subset (n_fisher_sample) of data to estimate the fisher information (batch_size=1)
+        # Otherwise it uses mini-batches for the estimation. This speeds up the process a lot with similar performance.
+        if self.n_fisher_sample is not None:
+            n_sample = min(self.n_fisher_sample, len(dataloader.dataset))
+            logger.info("Sample", self.n_fisher_sample, "for estimating the F matrix.")
+            rand_ind = random.sample(list(range(len(dataloader.dataset))), n_sample)
+            subdata = torch.utils.data.Subset(dataloader.dataset, rand_ind)
+            dataloader = torch.utils.data.DataLoader(
+                subdata, shuffle=True, num_workers=2, batch_size=1
+            )
+
+        self.model.eval()
+        # Accumulate the square of gradients
+        for data in dataloader:
+            x = data["image"]
+            y = data["label"]
+
+            x = x.to(self.device)
+            y = y.to(self.device)
+
+            logit = self.model(x)
+
+            pred = torch.argmax(logit, dim=-1)
+            if self.empFI:  # Use groundtruth label (default is without this)
+                pred = y
+
+            loss = self.criterion(logit, pred)
+            reg_loss = self.regularization_loss()
+            loss += reg_loss
+
+            self.model.zero_grad()
+            loss.backward()
+
+            for n, p in importance.items():
+                # Some heads can have no grad if no loss applied on them.
+                if self.params[n].grad is not None:
+                    p += (self.params[n].grad ** 2) * len(x) / len(dataloader.dataset)
+
+        return importance
+    
+    #EWC regularization loss
+    def regularization_loss(
+        self,
+    ):
+        reg_loss = 0
+        if len(self.regularization_terms) > 0:
+            # Calculate the reg_loss only when the regularization_terms exists
+            for _, reg_term in self.regularization_terms.items():
+                task_reg_loss = 0
+                importance = reg_term["importance"]
+                task_param = reg_term["task_param"]
+
+                for n, p in self.params.items():
+                    task_reg_loss += (importance[n] * (p - task_param[n]) ** 2).sum()
+
+                max_importance = 0
+                max_param_change = 0
+                for n, p in self.params.items():
+                    max_importance = max(max_importance, importance[n].max())
+                    max_param_change = max(
+                        max_param_change, ((p - task_param[n]) ** 2).max()
+                    )
+                if reg_loss > 1000:
+                    logger.warning(
+                        f"max_importance:{max_importance}, max_param_change:{max_param_change}"
+                    )
+                reg_loss += task_reg_loss
+            reg_loss = self.reg_coef * reg_loss
+
+        return reg_loss
 
     def train(self, cur_iter, n_epoch, batch_size, n_worker, n_passes=0):
         if len(self.memory_list) > 0:
@@ -108,6 +199,32 @@ class RM(Finetune):
 
             best_acc = max(best_acc, eval_dict["avg_acc"])
 
+        # 2.Backup the weight of current task
+        task_param = {}
+        for n, p in self.params.items():
+            task_param[n] = p.clone().detach()
+            
+        # 3.Calculate the importance of weights for current task
+        importance = self.calculate_importance(train_loader)
+        
+        # Save the weight and importance of weights of current task
+        self.task_count += 1
+
+        # Use a new slot to store the task-specific information
+        if self.online_reg and len(self.regularization_terms) > 0:
+            # Always use only one slot in self.regularization_terms
+            self.regularization_terms[1] = {
+                "importance": importance,
+                "task_param": task_param,
+            }
+        else:
+            # Use a new slot to store the task-specific information
+            self.regularization_terms[self.task_count] = {
+                "importance": importance,
+                "task_param": task_param,
+            }
+        logger.debug(f"# of reg_terms: {len(self.regularization_terms)}")
+        
         return best_acc, eval_dict
 
     def update_model(self, x, y, criterion, optimizer):
@@ -123,12 +240,17 @@ class RM(Finetune):
         else:
             logit = self.model(x)
             loss = criterion(logit, y)
+            
+        reg_loss = self.regularization_loss()
 
-        _, preds = logit.topk(self.topk, 1, True, True)
-
-        loss.backward()
+        loss += reg_loss
+        loss.backward(retain_graph=True)
         optimizer.step()
-        return loss.item(), torch.sum(preds == y.unsqueeze(1)).item(), y.size(0)
+        
+        _, preds = logit.topk(self.topk, 1, True, True)
+        total_loss += loss.item()
+        
+        return total_loss, torch.sum(preds == y.unsqueeze(1)).item(), y.size(0)
 
     def _train(
         self, train_loader, memory_loader, optimizer, criterion
