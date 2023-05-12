@@ -40,15 +40,16 @@ class RM(Finetune):
         if kwargs["mem_manage"] == "default":
             self.mem_manage = "uncertainty"
             
-        #regularization term
-        self.params = {
-            n: p for n, p in list(self.model.named_parameters())[:-2] if p.requires_grad
-        }  # For convenience
+        # #regularization term
+        # self.params = {
+        #     n: p for n, p in list(self.model.named_parameters())[:-2] if p.requires_grad
+        # }  # For convenience
         self.regularization_terms = {}
         self.task_count = 0
         self.reg_coef = kwargs["reg_coef"]
+        self.online_reg = "online" in kwargs["stream_env"]
         
-    #EWC regularization    
+    #EWC regularization: 샘플들을 돌려서 측정
     def calculate_importance(self, dataloader):
         # Update the diag fisher information
         # There are several ways to estimate the F matrix.
@@ -239,9 +240,9 @@ class RM(Finetune):
             )
         else:
             logit = self.model(x)
-            loss = criterion(logit, y)
+            loss = criterion(logit, y) #여기서 한번 씩 업데이트 규제화.
             
-        reg_loss = self.regularization_loss()
+        reg_loss = self.regularization_loss() # loss에 추가로 regularization 적용
 
         loss += reg_loss
         loss.backward(retain_graph=True)
