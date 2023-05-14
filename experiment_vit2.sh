@@ -56,7 +56,7 @@ elif [ "$DATASET" == "cifar10" ]; then
     then
         MODEL_NAME="resnet18"; LR=0.05
     else
-        MODEL_NAME="ViT"; LR=0.001
+        MODEL_NAME="ViT"; LR=0.005
     fi
     N_EPOCH=256; BATCHSIZE=16; OPT_NAME="sgd" SCHED_NAME="cos"
     if [ "${MODE_LIST[0]}" == "joint" ]; then

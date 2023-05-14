@@ -23,6 +23,7 @@ from utils.augment import Cutout, Invert, Solarize, select_autoaugment
 from utils.data_loader import ImageDataset
 from utils.data_loader import cutmix_data
 from utils.train_utils import select_model, select_optimizer
+from transformers import AutoImageProcessor, ViTForImageClassification
 
 logger = logging.getLogger()
 writer = SummaryWriter("tensorboard")
@@ -113,7 +114,7 @@ class Finetune:
         if backbone == "basic":
             in_features = self.model.fc.in_features
             out_features = self.model.fc.out_features
-        elif backbone == "vit":
+        elif "vit" in backbone:
             in_features = self.model.dim
             out_features = self.model.num_classes
         else:
@@ -129,9 +130,13 @@ class Finetune:
         else:
             if backbone=="basic":
                 self.model.fc = nn.Linear(in_features, new_out_features)
-            elif backbone == "vit":
-                self.model.fc = nn.Sequential(
-                    nn.LayerNorm(in_features), nn.Linear(in_features, new_out_features))
+            elif "vit" in backbone:
+                if isinstance(self.model, ViTForImageClassification):
+                    self.model.classifier = nn.Linear(in_features, new_out_features)
+                    self.model.num_labels = new_out_features
+                else:
+                    self.model.fc = nn.Sequential(
+                        nn.LayerNorm(in_features), nn.Linear(in_features, new_out_features))
             else:
                 raise NotImplementedError("select either basic or vit")
                 
@@ -310,12 +315,20 @@ class Finetune:
                 do_cutmix = self.cutmix and np.random.rand(1) < 0.5
                 if do_cutmix:
                     x, labels_a, labels_b, lam = cutmix_data(x=x, y=y, alpha=1.0)
-                    logit = self.model(x)
+                    logit=None
+                    if isinstance(self.model, ViTForImageClassification):
+                        logit = self.model(x).logits
+                    else:
+                        logit = self.model(x)
                     loss = lam * criterion(logit, labels_a) + (1 - lam) * criterion(
                         logit, labels_b
                     )
                 else:
-                    logit = self.model(x)
+                    logit = None
+                    if isinstance(self.model, ViTForImageClassification):
+                        logit = self.model(x).logits
+                    else:
+                        logit = self.model(x)
                     loss = criterion(logit, y)
                 _, preds = logit.topk(self.topk, 1, True, True)
 
@@ -356,7 +369,11 @@ class Finetune:
                 y = data["label"]
                 x = x.to(self.device)
                 y = y.to(self.device)
-                logit = self.model(x)
+                logit=None
+                if isinstance(self.model, ViTForImageClassification):
+                    logit = self.model(x).logits
+                else:
+                    logit = self.model(x)
 
                 loss = criterion(logit, y)
                 pred = torch.argmax(logit, dim=-1)
@@ -565,7 +582,11 @@ class Finetune:
             for n_batch, data in enumerate(infer_loader):
                 x = data["image"]
                 x = x.to(self.device)
-                logit = self.model(x)
+                logit=None
+                if isinstance(self.model, ViTForImageClassification):
+                    logit = self.model(x).logits
+                else:
+                    logit = self.model(x)
                 logit = logit.detach().cpu()
 
                 for i, cert_value in enumerate(logit):

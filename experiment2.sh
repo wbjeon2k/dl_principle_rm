@@ -82,7 +82,7 @@ else
     exit 1
 fi
 
-python main.py --mode $MODE --mem_manage $MEM_MANAGE --exp_name $EXP \
+python3 main.py --mode $MODE --mem_manage $MEM_MANAGE --exp_name $EXP \
 --dataset $DATASET \
 --stream_env $STREAM  $INIT_MODEL $INIT_OPT --topk $TOPK \
 --n_tasks $N_TASKS --n_cls_a_task $N_CLS_A_TASK --n_init_cls $N_INIT_CLS \

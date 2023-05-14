@@ -24,7 +24,6 @@ from utils.data_loader import get_test_datalist, get_statistics
 from utils.data_loader import get_train_datalist
 from utils.method_manager import select_method
 
-
 def main():
     args = config.base_parser()
 

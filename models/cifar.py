@@ -1,7 +1,8 @@
 import torch.nn as nn
 from models.layers import ConvBlock, InitialBlock, FinalBlock
 from models.vit import SimpleViT
-
+from transformers import AutoImageProcessor, ViTForImageClassification
+from transformers import ViTConfig
 
 class BasicBlock(nn.Module):
     expansion = 1
@@ -214,14 +215,47 @@ class ResNet(nn.Module):
         out = self.fc(out)
         return out
 
-class ViT_CIFAR(SimpleViT):
+class SimpleViT_CIFAR(SimpleViT):
     def __init__(self, opt):
         super().__init__(
-            image_size=32,
-            patch_size=4,
+            image_size=224,
+            patch_size=16,
             num_classes=opt.num_classes,
             dim=1024,
-            depth=6,
+            depth=12,
             heads=16,
             mlp_dim=2048
         )
+        
+
+class PretrainedVit_CIFAR(ViTForImageClassification):
+    def __init__(self, vit_config : ViTConfig):
+        super().__init__(
+            vit_config
+        )
+        self.dim = vit_config.hidden_size
+        self.num_classes = vit_config.num_labels
+        self.classifier = nn.Linear(vit_config.hidden_size, vit_config.num_labels)
+
+    def override_classifier(self, vit_config: ViTConfig, opt):
+        self.dim = vit_config.hidden_size
+        self.num_classes = vit_config.num_labels
+        self.classifier = nn.Linear(
+            vit_config.hidden_size, vit_config.num_labels)
+
+# same class, but for readablity
+class Vit_CIFAR(ViTForImageClassification):
+    def __init__(self, vit_config: ViTConfig):
+        super().__init__(
+            vit_config
+        )
+        self.dim = vit_config.hidden_size
+        self.num_classes = vit_config.num_labels
+        self.classifier = nn.Linear(
+            vit_config.hidden_size, vit_config.num_labels)
+
+    def override_classifier(self, vit_config: ViTConfig, opt):
+        self.dim = vit_config.hidden_size
+        self.num_classes = vit_config.num_labels
+        self.classifier = nn.Linear(
+            vit_config.hidden_size, vit_config.num_labels)

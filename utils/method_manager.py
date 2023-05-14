@@ -12,6 +12,7 @@ from methods.rainbow_memory import RM
 from methods.icarl import ICaRL
 from methods.joint import Joint
 from methods.regularization import EWC, RWalk
+from methods.rainbow_memory import RM_JJUNSSS
 
 logger = logging.getLogger()
 
@@ -56,6 +57,15 @@ def select_method(args, criterion, device, train_transform, test_transform, n_cl
         )
     elif args.mode == "rm":
         method = RM(
+            criterion=criterion,
+            device=device,
+            train_transform=train_transform,
+            test_transform=test_transform,
+            n_classes=n_classes,
+            **kwargs,
+        )
+    elif args.mode == "rm_iblurry":
+        method = RM_JJUNSSS(
             criterion=criterion,
             device=device,
             train_transform=train_transform,
