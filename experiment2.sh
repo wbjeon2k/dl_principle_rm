@@ -5,7 +5,7 @@ MODE="rm" # joint, gdumb, icarl, rm, ewc, rwalk, bic
 # "default": If you want to use the default memory management method.
 MEM_MANAGE="default" # default, random, reservoir, uncertainty, prototype.
 RND_SEED=1
-DATASET="mnist" # mnist, cifar10, cifar100, imagenet
+DATASET="cifar10" # mnist, cifar10, cifar100, imagenet
 STREAM="online" # offline, online
 EXP="blurry10" # disjoint, blurry10, blurry30
 MEM_SIZE=500 # cifar10: k={200, 500, 1000}, mnist: k=500, cifar100: k=2,000, imagenet: k=20,000
@@ -82,7 +82,7 @@ else
     exit 1
 fi
 
-python main.py --mode $MODE --mem_manage $MEM_MANAGE --exp_name $EXP \
+python3 main.py --mode $MODE --mem_manage $MEM_MANAGE --exp_name $EXP \
 --dataset $DATASET \
 --stream_env $STREAM  $INIT_MODEL $INIT_OPT --topk $TOPK \
 --n_tasks $N_TASKS --n_cls_a_task $N_CLS_A_TASK --n_init_cls $N_INIT_CLS \

@@ -1,5 +1,6 @@
 import torch.nn as nn
 from models.layers import FCBlock, FinalBlock
+from models.vit import SimpleViT
 
 
 class MLP(nn.Module):
@@ -16,3 +17,15 @@ class MLP(nn.Module):
         _out = self.hidden1(_out)
         _out = self.fc(_out)
         return _out
+
+class ViT_MLP(SimpleViT):
+    def __init__(self,opt):
+        super().__init__(
+            image_size=28,
+            patch_size=4,
+            num_classes=opt.num_classes,
+            dim=256,
+            depth=3,
+            heads=16,
+            mlp_dim=256
+        )

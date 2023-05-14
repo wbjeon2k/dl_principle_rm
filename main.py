@@ -24,7 +24,6 @@ from utils.data_loader import get_test_datalist, get_statistics
 from utils.data_loader import get_train_datalist
 from utils.method_manager import select_method
 
-
 def main():
     args = config.base_parser()
 
@@ -96,6 +95,8 @@ def main():
     method = select_method(
         args, criterion, device, train_transform, test_transform, n_classes
     )
+    
+    logger.info(method.model)
 
     logger.info(f"[2] Incrementally training {args.n_tasks} tasks")
     task_records = defaultdict(list)
@@ -127,7 +128,7 @@ def main():
         logger.info("[2-2] Set environment for the current task")
         method.set_current_dataset(cur_train_datalist, cur_test_datalist)
         # Increment known class for current task iteration.
-        method.before_task(cur_train_datalist, cur_iter, args.init_model, args.init_opt)
+        method.before_task(cur_train_datalist, cur_iter, args.init_model, args.init_opt, args.backbone)
 
         # The way to handle streamed samles
         logger.info(f"[2-3] Start to train under {args.stream_env}")

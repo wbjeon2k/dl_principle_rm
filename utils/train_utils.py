@@ -6,9 +6,10 @@ GPLv3
 import torch_optimizer
 from easydict import EasyDict as edict
 from torch import optim
-
+import transformers
+import fnmatch
 from models import mnist, cifar, imagenet
-
+from transformers import AutoImageProcessor, ViTForImageClassification
 
 def select_optimizer(opt_name, lr, model, sched_name="cos"):
     if opt_name == "adam":
@@ -40,7 +41,7 @@ def select_optimizer(opt_name, lr, model, sched_name="cos"):
     return opt, scheduler
 
 
-def select_model(model_name, dataset, num_classes=None):
+def select_model(model_name, dataset, num_classes=None, backbone=None):
     opt = edict(
         {
             "depth": 18,
@@ -57,30 +58,71 @@ def select_model(model_name, dataset, num_classes=None):
         }
     )
 
+    image_size = None
+    patch_size = None
+    dataset_name = None
     if "mnist" in dataset:
-        model_class = getattr(mnist, "MLP")
+        dataset_name = "mnist"
+        model_class = getattr(mnist, "MLP") if backbone=="basic" else getattr(mnist,"ViT_MLP")
+        image_size=28
+        patch_size = 4
     elif "cifar" in dataset:
+        dataset_name = "cifar"
         model_class = getattr(cifar, "ResNet")
+        if "vit" in backbone:
+            image_size = 224
+            patch_size = 16
+            if model_name == "simplevit":
+                model_class = getattr(cifar, "SimpleViT_CIFAR")
+            elif model_name == "vit_pretrained":
+                model_class = getattr(cifar, "PretrainedVit_CIFAR")
+            elif model_name == "vit_vanilla":
+                model_class = getattr(cifar, "Vit_CIFAR")
+            else:
+                raise NotImplementedError
+        else:
+            image_size = 32
+            patch_size = 4
     elif "imagenet" in dataset:
         model_class = getattr(imagenet, "ResNet")
+        image_size = 224
+        patch_size = 16
     else:
         raise NotImplementedError(
             "Please select the appropriate datasets (mnist, cifar10, cifar100, imagenet)"
         )
+    
+    vit_config = transformers.ViTConfig(
+        image_size= image_size,
+        patch_size= patch_size,
+        num_labels= num_classes
+    )
+    
 
-    if model_name == "resnet18":
-        opt["depth"] = 18
-    elif model_name == "resnet32":
-        opt["depth"] = 32
-    elif model_name == "resnet34":
-        opt["depth"] = 34
-    elif model_name == "mlp400":
-        opt["width"] = 400
+    if backbone == "basic":
+        if model_name == "resnet18":
+            opt["depth"] = 18
+        elif model_name == "resnet32":
+            opt["depth"] = 32
+        elif model_name == "resnet34":
+            opt["depth"] = 34
+        elif model_name == "mlp400":
+            opt["width"] = 400
+        else:
+            raise NotImplementedError(
+                "Please choose the model name in [resnet18, resnet32, resnet34]"
+            )
+            
+    if "pretrained" in model_name:
+        model = model_class(vit_config)
+        assert isinstance(model, ViTForImageClassification)
+        model = model.from_pretrained("google/vit-base-patch16-224")
+        model.override_classifier(vit_config,opt)
+    elif "vanilla" in model_name:
+        model = model_class(vit_config)
+        assert isinstance(model, ViTForImageClassification)
+        model.override_classifier(vit_config, opt)
     else:
-        raise NotImplementedError(
-            "Please choose the model name in [resnet18, resnet32, resnet34]"
-        )
-
-    model = model_class(opt)
+        model = model_class(opt)
 
     return model

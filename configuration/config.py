@@ -14,7 +14,7 @@ def base_parser():
         "--mode",
         type=str,
         default="finetune",
-        help="CIL methods [joint, rwalk, icarl, rm,  gdumb, ewc, bic]",
+        help="CIL methods [joint, rwalk, icarl, rm, rm_iblurry gdumb, ewc, bic]",
     )
     parser.add_argument(
         "--mem_manage",
@@ -28,6 +28,16 @@ def base_parser():
         default="cifar10",
         help="[mnist, cifar10, cifar100, imagenet]",
     )
+    
+    # add backbone options
+    parser.add_argument(
+        "--backbone",
+        type=str,
+        default="basic",
+        choices=["basic", "vit", "vit_pretrained", "vit_vanilla"],
+        help="Select either cnn or vit [cnn,vit,vit_pretrained,vit_vanilla]"
+    )
+    
     parser.add_argument("--n_tasks", type=int, default="5", help="The number of tasks")
     parser.add_argument(
         "--n_cls_a_task", type=int, default=2, help="The number of class of each task"
@@ -152,6 +162,14 @@ def base_parser():
 
     # Debug
     parser.add_argument("--debug", action="store_true", help="Turn on Debug mode")
-
+    
+    # I-blurry setting value
+    parser.add_argument("--i_blurry", action="store_true", help="Turn on Debug mode")
+    parser.add_argument("--n_ratio", type=int, default=0,
+                        help="i-blurry config, disjointed ratio control, setlist = [0, 50, 100] \
+                            100 is full disjoint training, This may vary depending on each data set.")
+    parser.add_argument("--m_ratio", type=int, default=0, 
+                        help="i-blurry config, blurry ratio control, setlist = [0, 10, 30, 50]\
+                            This may vary depending on each data set.")
     args = parser.parse_args()
     return args
